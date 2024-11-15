@@ -202,13 +202,14 @@ class CodeGenerator(NodeVisitor):
         self._param_def_block: t.List[t.Set[str]] = []
         self._context_reference_stack = ["context"]
 
-    def fail(self, msg: str, lineno: int) -> "te.NoReturn":
+    def fail(self, msg: str, lineno: int) -> "NoReturn":
         """Fail with a :exc:`TemplateAssertionError`."""
-        pass
+        raise TemplateAssertionError(msg, lineno, self.name, self.filename)
 
     def temporary_identifier(self) -> str:
         """Get a new unique identifier."""
-        pass
+        self._last_identifier += 1
+        return f'_tmp_{self._last_identifier}'
 
     def buffer(self, frame: Frame) -> None:
         """Enable buffering for the frame from that point onwards."""
@@ -301,7 +302,9 @@ class CodeGenerator(NodeVisitor):
 
     def position(self, node: nodes.Node) -> str:
         """Return a human readable position for the node."""
-        pass
+        if node.lineno is not None:
+            return f'line {node.lineno}'
+        return 'unknown position'
 
     def write_commons(self) -> None:
         """Writes a common preamble that is used by root and block functions.
@@ -331,7 +334,9 @@ class CodeGenerator(NodeVisitor):
 
     def parameter_is_undeclared(self, target: str) -> bool:
         """Checks if a given target is an undeclared parameter."""
-        pass
+        if not self._param_def_block:
+            return False
+        return target in self._param_def_block[-1]
 
     def push_assign_tracking(self) -> None:
         """Pushes a new layer for assignment tracking."""
@@ -390,14 +395,21 @@ class CodeGenerator(NodeVisitor):
             Source code to output around nodes to be evaluated at
             runtime.
         """
-        pass
+        finalize = self.environment.finalize
+        const = getattr(finalize, 'const', None) or self._default_finalize
+        src = getattr(finalize, 'src', None)
+        if src:
+            src = f'environment.finalize({src})'
+        else:
+            src = 'environment.finalize'
+        return self._FinalizeInfo(const=const, src=src)
 
     def _output_const_repr(self, group: t.Iterable[t.Any]) -> str:
         """Given a group of constant values converted from ``Output``
         child nodes, produce a string to write to the template module
         source.
         """
-        pass
+        return repr(concat(group))
 
     def _output_child_to_const(
         self, node: nodes.Expr, frame: Frame, finalize: _FinalizeInfo
