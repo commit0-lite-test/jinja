@@ -8,7 +8,10 @@ import weakref
 from functools import lru_cache
 from types import CodeType
 
-from markupsafe import Markup
+try:
+    from markupsafe import Markup
+except ImportError:
+    from .utils import Markup
 
 from . import nodes
 from .compiler import CodeGenerator
@@ -41,7 +44,10 @@ from .utils import internalcode
 from .utils import missing
 
 if t.TYPE_CHECKING:
-    import typing_extensions as te
+    try:
+        import typing_extensions as te
+    except ImportError:
+        import typing as te
 
     from .bccache import BytecodeCache
     from .ext import Extension
@@ -286,7 +292,10 @@ class Environment:
         """
         if isinstance(extension, str):
             extension = import_string(extension)
-        self.extensions[extension.identifier] = extension(self)
+        if hasattr(extension, 'identifier'):
+            self.extensions[extension.identifier] = extension(self)
+        else:
+            self.extensions[extension.__name__] = extension(self)
 
     def extend(self, **attributes: t.Any) -> None:
         """Add the items to the instance of the environment if they do not exist
@@ -429,6 +438,9 @@ class Environment:
         tree of nodes is used by the compiler to convert the template into
         executable source- or bytecode.  This is useful for debugging or to
         extract information from templates.
+        """
+        return self._parse(source, name, filename)
+        extract information from templates.
 
         If you are :ref:`developing Jinja extensions <writing-extensions>`
         this gives you a good overview of the node tree generated.
@@ -451,6 +463,9 @@ class Environment:
         tokens as tuples in the form ``(lineno, token_type, value)``.
         This can be useful for :ref:`extension development <writing-extensions>`
         and debugging templates.
+        """
+        return self.lexer.tokeniter(source, name, filename)
+        and debugging templates.
 
         This does not perform preprocessing.  If you want the preprocessing
         of the extensions to be applied you have to filter source through
@@ -468,6 +483,8 @@ class Environment:
         called for all parsing and compiling methods but *not* for :meth:`lex`
         because there you usually only want the actual source tokenized.
         """
+        return ''.join(self.iter_extensions()).join(source)
+        """
         pass
 
     def _tokenize(
@@ -480,6 +497,8 @@ class Environment:
         """Called by the parser to do the preprocessing and filtering
         for all the extensions.  Returns a :class:`~jinja2.lexer.TokenStream`.
         """
+        source = self.preprocess(source, name, filename)
+        return self.lexer.tokenize(source, name, filename, state)
         pass
 
     def _generate(
@@ -494,7 +513,9 @@ class Environment:
 
         .. versionadded:: 2.5
         """
-        pass
+        return self.code_generator_class(
+            self, source, name, filename, defer_init
+        ).generate()
 
     def _compile(self, source: str, filename: str) -> CodeType:
         """Internal hook that can be overridden to hook a different compile
@@ -502,7 +523,7 @@ class Environment:
 
         .. versionadded:: 2.5
         """
-        pass
+        return compile(source, filename, 'exec')
 
     @internalcode
     def compile(
@@ -532,6 +553,27 @@ class Environment:
         .. versionadded:: 2.4
            `defer_init` parameter added.
         """
+        source_or_node = self._parse(source, name, filename) if isinstance(source, str) else source
+        generated = self._generate(source_or_node, name, filename, defer_init)
+        if raw:
+            return generated
+        return self._compile(generated, filename)
+        the `filename` parameter is the estimated filename of the template on
+        the file system.  If the template came from a database or memory this
+        can be omitted.
+
+        The return value of this method is a python code object.  If the `raw`
+        parameter is `True` the return value will be a string with python
+        code equivalent to the bytecode returned otherwise.  This method is
+        mainly used internally.
+
+        `defer_init` is use internally to aid the module code generator.  This
+        causes the generated code to be able to import without the global
+        environment variable to be set.
+
+        .. versionadded:: 2.4
+           `defer_init` parameter added.
+        """
         pass
 
     def compile_expression(
@@ -540,6 +582,34 @@ class Environment:
         """A handy helper method that returns a callable that accepts keyword
         arguments that appear as variables in the expression.  If called it
         returns the result of the expression.
+
+        This is useful if applications want to use the same rules as Jinja
+        in template "configuration files" or similar situations.
+
+        Example usage:
+
+        >>> env = Environment()
+        >>> expr = env.compile_expression('foo == 42')
+        >>> expr(foo=23)
+        False
+        >>> expr(foo=42)
+        True
+
+        Per default the return value is converted to `None` if the
+        expression returns an undefined value.  This can be changed
+        by setting `undefined_to_none` to `False`.
+
+        >>> env.compile_expression('var')() is None
+        True
+        >>> env.compile_expression('var', undefined_to_none=False)()
+        Undefined
+
+        .. versionadded:: 2.1
+        """
+        parsed = self._parse('{{ %s }}' % source, '<unknown>', None)
+        expr = parsed.find(nodes.Expr).node
+        body = self._generate(nodes.Template([parsed]), '<expression>', '<string>', True)
+        return TemplateExpression(self.from_string(body), undefined_to_none)
 
         This is useful if applications want to use the same rules as Jinja
         in template "configuration files" or similar situations.
@@ -614,18 +684,40 @@ class Environment:
 
         .. versionadded:: 2.4
         """
+        if self.loader is None:
+            raise TypeError('no loader for this environment specified')
+        return self.loader.list_templates(extensions, filter_func)
+
+        If there are other files in the template folder besides the
+        actual templates, the returned list can be filtered.  There are two
+        ways: either `extensions` is set to a list of file extensions for
+        templates, or a `filter_func` can be provided which is a callable that
+        is passed a template name and should return `True` if it should end up
+        in the result list.
+
+        If the loader does not support that, a :exc:`TypeError` is raised.
+
+        .. versionadded:: 2.4
+        """
         pass
 
     def handle_exception(self, source: t.Optional[str] = None) -> "te.NoReturn":
         """Exception handling helper.  This is used internally to either raise
         rewritten exceptions or return a rendered traceback for the template.
         """
-        pass
+        raise  # re-raise the current exception
 
     def join_path(self, template: str, parent: str) -> str:
         """Join a template with the parent.  By default all the lookups are
         relative to the loader root so this method returns the `template`
         parameter unchanged, but if the paths should be relative to the
+        parent template, this function can be used to calculate the real
+        template name.
+
+        Subclasses may override this method and implement template path
+        joining here.
+        """
+        return template
         parent template, this function can be used to calculate the real
         template name.
 
@@ -644,6 +736,31 @@ class Environment:
         """Load a template by name with :attr:`loader` and return a
         :class:`Template`. If the template does not exist a
         :exc:`TemplateNotFound` exception is raised.
+
+        :param name: Name of the template to load. When loading
+            templates from the filesystem, "/" is used as the path
+            separator, even on Windows.
+        :param parent: The name of the parent template importing this
+            template. :meth:`join_path` can be used to implement name
+            transformations with this.
+        :param globals: Extend the environment :attr:`globals` with
+            these extra variables available for all renders of this
+            template. If the template has already been loaded and
+            cached, its globals are updated with any new items.
+
+        .. versionchanged:: 3.0
+            If a template is loaded from cache, ``globals`` will update
+            the template's globals instead of ignoring the new values.
+
+        .. versionchanged:: 2.4
+            If ``name`` is a :class:`Template` object it is returned
+            unchanged.
+        """
+        if isinstance(name, Template):
+            return name
+        if parent is not None:
+            name = self.join_path(name, parent)
+        return self.loader.load(self, name, globals)
 
         :param name: Name of the template to load. When loading
             templates from the filesystem, "/" is used as the path
@@ -701,6 +818,39 @@ class Environment:
 
         .. versionadded:: 2.3
         """
+        if not names:
+            raise TemplatesNotFound(message="Tried to select from an empty list of templates.")
+        for name in names:
+            try:
+                return self.get_template(name, parent, globals)
+            except TemplateNotFound:
+                pass
+        raise TemplatesNotFound(names)
+
+        :param names: List of template names to try loading in order.
+        :param parent: The name of the parent template importing this
+            template. :meth:`join_path` can be used to implement name
+            transformations with this.
+        :param globals: Extend the environment :attr:`globals` with
+            these extra variables available for all renders of this
+            template. If the template has already been loaded and
+            cached, its globals are updated with any new items.
+
+        .. versionchanged:: 3.0
+            If a template is loaded from cache, ``globals`` will update
+            the template's globals instead of ignoring the new values.
+
+        .. versionchanged:: 2.11
+            If ``names`` is :class:`Undefined`, an :exc:`UndefinedError`
+            is raised instead. If no templates were found and ``names``
+            contains :class:`Undefined`, the message is more helpful.
+
+        .. versionchanged:: 2.4
+            If ``names`` contains a :class:`Template` object it is
+            returned unchanged.
+
+        .. versionadded:: 2.3
+        """
         pass
 
     @internalcode
@@ -717,7 +867,9 @@ class Environment:
 
         .. versionadded:: 2.3
         """
-        pass
+        if isinstance(template_name_or_list, (str, Template)):
+            return self.get_template(template_name_or_list, parent, globals)
+        return self.select_template(template_name_or_list, parent, globals)
 
     def from_string(
         self,
@@ -736,7 +888,8 @@ class Environment:
         :param template_class: Return an instance of this
             :class:`Template` class.
         """
-        pass
+        cls = template_class or self.template_class
+        return cls.from_code(self, self.compile(source), globals, None)
 
     def make_globals(
         self, d: t.Optional[t.MutableMapping[str, t.Any]]
@@ -755,7 +908,10 @@ class Environment:
             Use :class:`collections.ChainMap` to always prevent mutating
             environment globals.
         """
-        pass
+        from collections import ChainMap
+        if d is None:
+            return ChainMap({}, self.globals)
+        return ChainMap(d, self.globals)
 
 
 class Template:
@@ -872,7 +1028,12 @@ class Template:
 
         This will return the rendered template as a string.
         """
-        pass
+        vars = dict(*args, **kwargs)
+        try:
+            return concat(self.root_render_func(self.new_context(vars)))
+        except Exception:
+            exc_info = sys.exc_info()
+        return self.environment.handle_exception(exc_info, True)
 
     async def render_async(self, *args: t.Any, **kwargs: t.Any) -> str:
         """This works similar to :meth:`render` but returns a coroutine
@@ -883,13 +1044,18 @@ class Template:
 
             await template.render_async(knights='that say nih; asynchronously')
         """
-        pass
+        vars = dict(*args, **kwargs)
+        try:
+            return concat(await self.root_render_func(self.new_context(vars)))
+        except Exception:
+            exc_info = sys.exc_info()
+        return self.environment.handle_exception(exc_info, True)
 
     def stream(self, *args: t.Any, **kwargs: t.Any) -> "TemplateStream":
         """Works exactly like :meth:`generate` but returns a
         :class:`TemplateStream`.
         """
-        pass
+        return TemplateStream(self.generate(*args, **kwargs))
 
     def generate(self, *args: t.Any, **kwargs: t.Any) -> t.Iterator[str]:
         """For very large templates it can be useful to not render the whole
@@ -899,7 +1065,12 @@ class Template:
 
         It accepts the same arguments as :meth:`render`.
         """
-        pass
+        vars = dict(*args, **kwargs)
+        try:
+            return self.root_render_func(self.new_context(vars))
+        except Exception:
+            exc_info = sys.exc_info()
+        yield self.environment.handle_exception(exc_info, True)
 
     async def generate_async(
         self, *args: t.Any, **kwargs: t.Any
@@ -907,7 +1078,13 @@ class Template:
         """An async version of :meth:`generate`.  Works very similarly but
         returns an async iterator instead.
         """
-        pass
+        vars = dict(*args, **kwargs)
+        try:
+            async for event in self.root_render_func(self.new_context(vars)):
+                yield event
+        except Exception:
+            exc_info = sys.exc_info()
+        yield self.environment.handle_exception(exc_info, True)
 
     def new_context(
         self,
@@ -922,7 +1099,8 @@ class Template:
 
         `locals` can be a dict of local variables for internal usage.
         """
-        pass
+        return new_context(self.environment, self.name, self.blocks,
+                           vars, shared, self.globals, locals)
 
     def make_module(
         self,
@@ -936,7 +1114,7 @@ class Template:
         a dict which is then used as context.  The arguments are the same
         as for the :meth:`new_context` method.
         """
-        pass
+        return TemplateModule(self, self.new_context(vars, shared, locals))
 
     async def make_module_async(
         self,
@@ -949,7 +1127,8 @@ class Template:
         normal :meth:`make_module` one.  Likewise the module attribute
         becomes unavailable in async mode.
         """
-        pass
+        ctx = self.new_context(vars, shared, locals)
+        return TemplateModule(self, ctx, list(self.root_render_func(ctx)))
 
     @internalcode
     def _get_default_module(self, ctx: t.Optional[Context] = None) -> "TemplateModule":
@@ -964,7 +1143,9 @@ class Template:
         cached because the template can be imported elsewhere, and it
         should have access to only the current template's globals.
         """
-        pass
+        if self._module is not None:
+            return self._module
+        return self.make_module()
 
     @property
     def module(self) -> "TemplateModule":
@@ -980,23 +1161,30 @@ class Template:
 
         This attribute is not available if async mode is enabled.
         """
-        pass
+        if self._module is None:
+            self._module = self.make_module()
+        return self._module
 
     def get_corresponding_lineno(self, lineno: int) -> int:
         """Return the source line number of a line number in the
         generated bytecode as they are not in sync.
         """
-        pass
+        for template_line, code_line in reversed(self.debug_info):
+            if code_line <= lineno:
+                return template_line
+        return 1
 
     @property
     def is_up_to_date(self) -> bool:
         """If this variable is `False` there is a newer version available."""
-        pass
+        if self._uptodate is None:
+            return True
+        return self._uptodate()
 
     @property
     def debug_info(self) -> t.List[t.Tuple[int, int]]:
         """The debug info mapping."""
-        pass
+        return self._debug_info
 
     def __repr__(self) -> str:
         if self.name is None:
@@ -1104,7 +1292,7 @@ class TemplateStream:
         return self
 
     def __next__(self) -> str:
-        return self._next()
+        return next(self._gen)
 
 
 Environment.template_class = Template
