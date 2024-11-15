@@ -2,12 +2,14 @@
 
 import typing as t
 from io import StringIO
+from typing import cast
 
 from . import nodes
 from .idtracking import Symbols
 from .nodes import EvalContext
 from .optimizer import Optimizer
 from .visitor import NodeVisitor
+from .exceptions import TemplateAssertionError
 
 if t.TYPE_CHECKING:
     from typing import NoReturn
@@ -174,7 +176,7 @@ class CodeGenerator(NodeVisitor):
         optimized: bool = True,
     ) -> None:
         if stream is None:
-            stream = StringIO()
+            stream = cast(t.TextIO, StringIO())
         self.environment = environment
         self.name = name
         self.filename = filename
