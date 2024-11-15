@@ -27,17 +27,24 @@ operators = {'eq': '==', 'ne': '!=', 'gt': '>', 'gteq': '>=', 'lt': '<', 'lteq':
 
 def generate(node: nodes.Template, environment: 'Environment', name: t.Optional[str], filename: t.Optional[str], stream: t.Optional[t.TextIO]=None, defer_init: bool=False, optimized: bool=True) -> t.Optional[str]:
     """Generate the python source for a node tree."""
-    pass
+    codegen = CodeGenerator(environment, name, filename, stream, defer_init, optimized)
+    codegen.visit(node)
+    if stream is None:
+        return codegen.stream.getvalue()
+    return None
 
 def has_safe_repr(value: t.Any) -> bool:
     """Does the node have a safe representation?"""
-    pass
+    return isinstance(value, (bool, int, float, str, tuple, frozenset, type(None)))
 
 def find_undeclared(nodes: t.Iterable[nodes.Node], names: t.Iterable[str]) -> t.Set[str]:
     """Check if the names passed are accessed undeclared.  The return value
     is a set of all the undeclared names from the sequence of names found.
     """
-    pass
+    visitor = UndeclaredNameVisitor(names)
+    for node in nodes:
+        visitor.visit(node)
+    return visitor.undeclared
 
 class MacroRef:
 
@@ -71,11 +78,16 @@ class Frame:
 
     def copy(self) -> 'Frame':
         """Create a copy of the current one."""
-        pass
+        rv = object.__new__(self.__class__)
+        rv.__dict__.update(self.__dict__)
+        rv.symbols = self.symbols.copy()
+        return rv
 
     def inner(self, isolated: bool=False) -> 'Frame':
         """Return an inner frame."""
-        pass
+        if isolated:
+            return Frame(self.eval_ctx, level=self.symbols.level + 1)
+        return Frame(self.eval_ctx, self, level=self.symbols.level + 1)
 
     def soft(self) -> 'Frame':
         """Return a soft frame.  A soft frame may not be modified as
@@ -85,7 +97,11 @@ class Frame:
         This is only used to implement if-statements and conditional
         expressions.
         """
-        pass
+        rv = object.__new__(self.__class__)
+        rv.__dict__.update(self.__dict__)
+        rv.rootlevel = False
+        rv.soft_frame = True
+        return rv
     __copy__ = copy
 
 class VisitorExit(RuntimeError):
