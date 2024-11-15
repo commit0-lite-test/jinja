@@ -181,12 +181,14 @@ class Failure:
     """
 
     def __init__(
-        self, message: str, cls: t.Type[TemplateSyntaxError] = TemplateSyntaxError
+        self,
+        message: str,
+        cls: t.Type[TemplateSyntaxError] = TemplateSyntaxError
     ) -> None:
         self.message = message
         self.error_class = cls
 
-    def __call__(self, lineno: int, filename: str) -> "te.NoReturn":
+    def __call__(self, lineno: int, filename: str) -> NoReturn:
         raise self.error_class(self.message, lineno, filename)
 
 
