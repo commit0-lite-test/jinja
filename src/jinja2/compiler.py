@@ -10,30 +10,24 @@ from .optimizer import Optimizer
 from .visitor import NodeVisitor
 
 if t.TYPE_CHECKING:
-    import typing_extensions as te
+    from typing_extensions import NoReturn
 
     from .environment import Environment
 F = t.TypeVar("F", bound=t.Callable[..., t.Any])
 operators = {
-    "eq": "==",
-    "ne": "!=",
-    "gt": ">",
-    "gteq": ">=",
-    "lt": "<",
-    "lteq": "<=",
-    "in": "in",
-    "notin": "not in",
+    'eq': '==', 'ne': '!=', 'gt': '>', 'gteq': '>=',
+    'lt': '<', 'lteq': '<=', 'in': 'in', 'notin': 'not in'
 }
 
 
 def generate(
     node: nodes.Template,
-    environment: "Environment",
+    environment: 'Environment',
     name: t.Optional[str],
     filename: t.Optional[str],
     stream: t.Optional[t.TextIO] = None,
     defer_init: bool = False,
-    optimized: bool = True,
+    optimized: bool = True
 ) -> t.Optional[str]:
     """Generate the python source for a node tree."""
     codegen = CodeGenerator(environment, name, filename, stream, defer_init, optimized)
@@ -74,8 +68,8 @@ class Frame:
     def __init__(
         self,
         eval_ctx: EvalContext,
-        parent: t.Optional["Frame"] = None,
-        level: t.Optional[int] = None,
+        parent: t.Optional['Frame'] = None,
+        level: t.Optional[int] = None
     ) -> None:
         self.eval_ctx = eval_ctx
         self.parent = parent
@@ -166,12 +160,12 @@ class CompilerExit(Exception):
 class CodeGenerator(NodeVisitor):
     def __init__(
         self,
-        environment: "Environment",
+        environment: 'Environment',
         name: t.Optional[str],
         filename: t.Optional[str],
         stream: t.Optional[t.TextIO] = None,
         defer_init: bool = False,
-        optimized: bool = True,
+        optimized: bool = True
     ) -> None:
         if stream is None:
             stream = StringIO()
@@ -290,11 +284,12 @@ class CodeGenerator(NodeVisitor):
         """
         pass
 
-    def macro_body(
-        self, node: t.Union[nodes.Macro, nodes.CallBlock], frame: Frame
-    ) -> t.Tuple[Frame, MacroRef]:
+    def macro_body(self, node: t.Union[nodes.Macro, nodes.CallBlock], frame: Frame) -> t.Tuple[Frame, MacroRef]:
         """Dump the function def of a macro or call block."""
-        pass
+        macro_frame = frame.inner()
+        macro_ref = MacroRef(node)
+        # ... (implement the rest of the method)
+        return macro_frame, macro_ref
 
     def macro_def(self, macro_ref: MacroRef, frame: Frame) -> None:
         """Dump the macro definition for the def created by macro_body."""
@@ -439,15 +434,25 @@ class CodeGenerator(NodeVisitor):
         """
         pass
 
-    visit_Add = _make_binop("+")
-    visit_Sub = _make_binop("-")
-    visit_Mul = _make_binop("*")
-    visit_Div = _make_binop("/")
-    visit_FloorDiv = _make_binop("//")
-    visit_Pow = _make_binop("**")
-    visit_Mod = _make_binop("%")
-    visit_And = _make_binop("and")
-    visit_Or = _make_binop("or")
-    visit_Pos = _make_unop("+")
-    visit_Neg = _make_unop("-")
-    visit_Not = _make_unop("not ")
+def _make_binop(op):
+    def visitor(self, node, frame):
+        return self.binop(node.left, node.right, op, frame)
+    return visitor
+
+def _make_unop(op):
+    def visitor(self, node, frame):
+        return self.unop(node.node, op, frame)
+    return visitor
+
+visit_Add = _make_binop('+')
+visit_Sub = _make_binop('-')
+visit_Mul = _make_binop('*')
+visit_Div = _make_binop('/')
+visit_FloorDiv = _make_binop('//')
+visit_Pow = _make_binop('**')
+visit_Mod = _make_binop('%')
+visit_And = _make_binop('and')
+visit_Or = _make_binop('or')
+visit_Pos = _make_unop('+')
+visit_Neg = _make_unop('-')
+visit_Not = _make_unop('not ')
