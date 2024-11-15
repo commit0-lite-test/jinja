@@ -3,7 +3,9 @@
 import typing as t
 from collections import abc
 
-from markupsafe import escape, Markup, soft_str
+from markupsafe import escape
+from markupsafe import Markup
+from markupsafe import soft_str
 
 from .exceptions import TemplateRuntimeError
 from .exceptions import UndefinedError
@@ -33,15 +35,28 @@ if t.TYPE_CHECKING:
 
 
 exported = [
-    "LoopContext", "TemplateReference", "Macro", "Markup", "TemplateRuntimeError",
-    "missing", "escape", "markup_join", "str_join", "identity", "TemplateNotFound",
-    "Namespace", "Undefined", "internalcode"
+    "LoopContext",
+    "TemplateReference",
+    "Macro",
+    "Markup",
+    "TemplateRuntimeError",
+    "missing",
+    "escape",
+    "markup_join",
+    "str_join",
+    "identity",
+    "TemplateNotFound",
+    "Namespace",
+    "Undefined",
+    "internalcode",
 ]
 async_exported = ["AsyncLoopContext", "auto_aiter", "auto_await"]
+
 
 def _dict_method_all(method):
     def wrapped(self):
         return method(self.get_all())
+
     return wrapped
 
 
@@ -63,14 +78,14 @@ def str_join(seq: t.Iterable[t.Any]) -> str:
 
 
 def new_context(
-    environment: 'Environment',
+    environment: "Environment",
     template_name: t.Optional[str],
-    blocks: t.Dict[str, t.Callable[['Context'], t.Iterator[str]]],
+    blocks: t.Dict[str, t.Callable[["Context"], t.Iterator[str]]],
     vars: t.Optional[t.Dict[str, t.Any]] = None,
     shared: bool = False,
     globals: t.Optional[t.MutableMapping[str, t.Any]] = None,
-    locals: t.Optional[t.Mapping[str, t.Any]] = None
-) -> 'Context':
+    locals: t.Optional[t.Mapping[str, t.Any]] = None,
+) -> "Context":
     """Internal helper for context creation."""
     parent = environment.make_globals(globals)
     if vars is not None:
@@ -119,11 +134,11 @@ class Context:
 
     def __init__(
         self,
-        environment: 'Environment',
+        environment: "Environment",
         parent: t.Dict[str, t.Any],
         name: t.Optional[str],
-        blocks: t.Dict[str, t.Callable[['Context'], t.Iterator[str]]],
-        globals: t.Optional[t.MutableMapping[str, t.Any]] = None
+        blocks: t.Dict[str, t.Callable[["Context"], t.Iterator[str]]],
+        globals: t.Optional[t.MutableMapping[str, t.Any]] = None,
     ):
         self.parent = parent
         self.vars: t.Dict[str, t.Any] = {}
@@ -205,11 +220,8 @@ class Context:
 
     @internalcode
     def call(
-        __self,
-        __obj: t.Callable[..., t.Any],
-        *args: t.Any,
-        **kwargs: t.Any
-    ) -> t.Union[t.Any, 'Undefined']:
+        __self, __obj: t.Callable[..., t.Any], *args: t.Any, **kwargs: t.Any
+    ) -> t.Union[t.Any, "Undefined"]:
         """Call the callable with the arguments and keyword arguments
         provided but inject the active context or environment as first
         argument if the callable has :func:`pass_context` or
@@ -492,14 +504,14 @@ class Macro:
 
     def __init__(
         self,
-        environment: 'Environment',
+        environment: "Environment",
         func: t.Callable[..., str],
         name: str,
         arguments: t.List[str],
         catch_kwargs: bool,
         catch_varargs: bool,
         caller: bool,
-        default_autoescape: t.Optional[bool] = None
+        default_autoescape: t.Optional[bool] = None,
     ):
         self._environment = environment
         self._func = func
@@ -594,7 +606,7 @@ class Undefined:
         hint: t.Optional[str] = None,
         obj: t.Any = missing,
         name: t.Optional[str] = None,
-        exc: t.Type[TemplateRuntimeError] = UndefinedError
+        exc: t.Type[TemplateRuntimeError] = UndefinedError,
     ) -> None:
         self._undefined_hint = hint
         self._undefined_obj = obj
@@ -670,8 +682,7 @@ class Undefined:
 
 
 def make_logging_undefined(
-    logger: t.Optional['logging.Logger'] = None,
-    base: t.Type[Undefined] = Undefined
+    logger: t.Optional["logging.Logger"] = None, base: t.Type[Undefined] = Undefined
 ) -> t.Type[Undefined]:
     """Given a logger object this returns a new undefined class that will
     log certain failures.  It will log iterations and printing.  If no
