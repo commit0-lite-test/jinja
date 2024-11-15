@@ -1,31 +1,40 @@
 """Compiles nodes from the parser into Python code."""
+
 import typing as t
-from contextlib import contextmanager
-from functools import update_wrapper
 from io import StringIO
-from itertools import chain
-from keyword import iskeyword as is_python_keyword
-from markupsafe import escape
-from markupsafe import Markup
+
 from . import nodes
-from .exceptions import TemplateAssertionError
 from .idtracking import Symbols
-from .idtracking import VAR_LOAD_ALIAS
-from .idtracking import VAR_LOAD_PARAMETER
-from .idtracking import VAR_LOAD_RESOLVE
-from .idtracking import VAR_LOAD_UNDEFINED
 from .nodes import EvalContext
 from .optimizer import Optimizer
-from .utils import _PassArg
-from .utils import concat
 from .visitor import NodeVisitor
+
 if t.TYPE_CHECKING:
     import typing_extensions as te
-    from .environment import Environment
-F = t.TypeVar('F', bound=t.Callable[..., t.Any])
-operators = {'eq': '==', 'ne': '!=', 'gt': '>', 'gteq': '>=', 'lt': '<', 'lteq': '<=', 'in': 'in', 'notin': 'not in'}
 
-def generate(node: nodes.Template, environment: 'Environment', name: t.Optional[str], filename: t.Optional[str], stream: t.Optional[t.TextIO]=None, defer_init: bool=False, optimized: bool=True) -> t.Optional[str]:
+    from .environment import Environment
+F = t.TypeVar("F", bound=t.Callable[..., t.Any])
+operators = {
+    "eq": "==",
+    "ne": "!=",
+    "gt": ">",
+    "gteq": ">=",
+    "lt": "<",
+    "lteq": "<=",
+    "in": "in",
+    "notin": "not in",
+}
+
+
+def generate(
+    node: nodes.Template,
+    environment: "Environment",
+    name: t.Optional[str],
+    filename: t.Optional[str],
+    stream: t.Optional[t.TextIO] = None,
+    defer_init: bool = False,
+    optimized: bool = True,
+) -> t.Optional[str]:
     """Generate the python source for a node tree."""
     codegen = CodeGenerator(environment, name, filename, stream, defer_init, optimized)
     codegen.visit(node)
@@ -33,11 +42,15 @@ def generate(node: nodes.Template, environment: 'Environment', name: t.Optional[
         return codegen.stream.getvalue()
     return None
 
+
 def has_safe_repr(value: t.Any) -> bool:
     """Does the node have a safe representation?"""
     return isinstance(value, (bool, int, float, str, tuple, frozenset, type(None)))
 
-def find_undeclared(nodes: t.Iterable[nodes.Node], names: t.Iterable[str]) -> t.Set[str]:
+
+def find_undeclared(
+    nodes: t.Iterable[nodes.Node], names: t.Iterable[str]
+) -> t.Set[str]:
     """Check if the names passed are accessed undeclared.  The return value
     is a set of all the undeclared names from the sequence of names found.
     """
@@ -46,18 +59,24 @@ def find_undeclared(nodes: t.Iterable[nodes.Node], names: t.Iterable[str]) -> t.
         visitor.visit(node)
     return visitor.undeclared
 
-class MacroRef:
 
+class MacroRef:
     def __init__(self, node: t.Union[nodes.Macro, nodes.CallBlock]) -> None:
         self.node = node
         self.accesses_caller = False
         self.accesses_kwargs = False
         self.accesses_varargs = False
 
+
 class Frame:
     """Holds compile time information for us."""
 
-    def __init__(self, eval_ctx: EvalContext, parent: t.Optional['Frame']=None, level: t.Optional[int]=None) -> None:
+    def __init__(
+        self,
+        eval_ctx: EvalContext,
+        parent: t.Optional["Frame"] = None,
+        level: t.Optional[int] = None,
+    ) -> None:
         self.eval_ctx = eval_ctx
         self.parent = parent
         if parent is None:
@@ -76,20 +95,20 @@ class Frame:
         self.block_frame = False
         self.soft_frame = False
 
-    def copy(self) -> 'Frame':
+    def copy(self) -> "Frame":
         """Create a copy of the current one."""
         rv = object.__new__(self.__class__)
         rv.__dict__.update(self.__dict__)
         rv.symbols = self.symbols.copy()
         return rv
 
-    def inner(self, isolated: bool=False) -> 'Frame':
+    def inner(self, isolated: bool = False) -> "Frame":
         """Return an inner frame."""
         if isolated:
             return Frame(self.eval_ctx, level=self.symbols.level + 1)
         return Frame(self.eval_ctx, self, level=self.symbols.level + 1)
 
-    def soft(self) -> 'Frame':
+    def soft(self) -> "Frame":
         """Return a soft frame.  A soft frame may not be modified as
         standalone thing as it shares the resources with the frame it
         was created of, but it's not a rootlevel frame any longer.
@@ -102,10 +121,13 @@ class Frame:
         rv.rootlevel = False
         rv.soft_frame = True
         return rv
+
     __copy__ = copy
+
 
 class VisitorExit(RuntimeError):
     """Exception used by the `UndeclaredNameVisitor` to signal a stop."""
+
 
 class DependencyFinderVisitor(NodeVisitor):
     """A visitor that collects filter and test calls."""
@@ -117,6 +139,7 @@ class DependencyFinderVisitor(NodeVisitor):
     def visit_Block(self, node: nodes.Block) -> None:
         """Stop visiting at blocks."""
         pass
+
 
 class UndeclaredNameVisitor(NodeVisitor):
     """A visitor that checks if a name is accessed without being
@@ -132,15 +155,24 @@ class UndeclaredNameVisitor(NodeVisitor):
         """Stop visiting a blocks."""
         pass
 
+
 class CompilerExit(Exception):
     """Raised if the compiler encountered a situation where it just
     doesn't make sense to further process the code.  Any block that
     raises such an exception is not further processed.
     """
 
-class CodeGenerator(NodeVisitor):
 
-    def __init__(self, environment: 'Environment', name: t.Optional[str], filename: t.Optional[str], stream: t.Optional[t.TextIO]=None, defer_init: bool=False, optimized: bool=True) -> None:
+class CodeGenerator(NodeVisitor):
+    def __init__(
+        self,
+        environment: "Environment",
+        name: t.Optional[str],
+        filename: t.Optional[str],
+        stream: t.Optional[t.TextIO] = None,
+        defer_init: bool = False,
+        optimized: bool = True,
+    ) -> None:
         if stream is None:
             stream = StringIO()
         self.environment = environment
@@ -168,9 +200,9 @@ class CodeGenerator(NodeVisitor):
         self._indentation = 0
         self._assign_stack: t.List[t.Set[str]] = []
         self._param_def_block: t.List[t.Set[str]] = []
-        self._context_reference_stack = ['context']
+        self._context_reference_stack = ["context"]
 
-    def fail(self, msg: str, lineno: int) -> 'te.NoReturn':
+    def fail(self, msg: str, lineno: int) -> "te.NoReturn":
         """Fail with a :exc:`TemplateAssertionError`."""
         pass
 
@@ -182,7 +214,9 @@ class CodeGenerator(NodeVisitor):
         """Enable buffering for the frame from that point onwards."""
         pass
 
-    def return_buffer_contents(self, frame: Frame, force_unescaped: bool=False) -> None:
+    def return_buffer_contents(
+        self, frame: Frame, force_unescaped: bool = False
+    ) -> None:
         """Return the buffer contents of the frame."""
         pass
 
@@ -190,11 +224,11 @@ class CodeGenerator(NodeVisitor):
         """Indent by one."""
         pass
 
-    def outdent(self, step: int=1) -> None:
+    def outdent(self, step: int = 1) -> None:
         """Outdent by step."""
         pass
 
-    def start_write(self, frame: Frame, node: t.Optional[nodes.Node]=None) -> None:
+    def start_write(self, frame: Frame, node: t.Optional[nodes.Node] = None) -> None:
         """Yield or write into the frame buffer."""
         pass
 
@@ -202,7 +236,9 @@ class CodeGenerator(NodeVisitor):
         """End the writing process started by `start_write`."""
         pass
 
-    def simple_write(self, s: str, frame: Frame, node: t.Optional[nodes.Node]=None) -> None:
+    def simple_write(
+        self, s: str, frame: Frame, node: t.Optional[nodes.Node] = None
+    ) -> None:
         """Simple shortcut for start_write + write + end_write."""
         pass
 
@@ -216,15 +252,22 @@ class CodeGenerator(NodeVisitor):
         """Write a string into the output stream."""
         pass
 
-    def writeline(self, x: str, node: t.Optional[nodes.Node]=None, extra: int=0) -> None:
+    def writeline(
+        self, x: str, node: t.Optional[nodes.Node] = None, extra: int = 0
+    ) -> None:
         """Combination of newline and write."""
         pass
 
-    def newline(self, node: t.Optional[nodes.Node]=None, extra: int=0) -> None:
+    def newline(self, node: t.Optional[nodes.Node] = None, extra: int = 0) -> None:
         """Add one or more newlines before the next write."""
         pass
 
-    def signature(self, node: t.Union[nodes.Call, nodes.Filter, nodes.Test], frame: Frame, extra_kwargs: t.Optional[t.Mapping[str, t.Any]]=None) -> None:
+    def signature(
+        self,
+        node: t.Union[nodes.Call, nodes.Filter, nodes.Test],
+        frame: Frame,
+        extra_kwargs: t.Optional[t.Mapping[str, t.Any]] = None,
+    ) -> None:
         """Writes a function call to the stream for the current node.
         A leading comma is added automatically.  The extra keyword
         arguments may not include python keywords otherwise a syntax
@@ -246,7 +289,9 @@ class CodeGenerator(NodeVisitor):
         """
         pass
 
-    def macro_body(self, node: t.Union[nodes.Macro, nodes.CallBlock], frame: Frame) -> t.Tuple[Frame, MacroRef]:
+    def macro_body(
+        self, node: t.Union[nodes.Macro, nodes.CallBlock], frame: Frame
+    ) -> t.Tuple[Frame, MacroRef]:
         """Dump the function def of a macro or call block."""
         pass
 
@@ -329,6 +374,7 @@ class CodeGenerator(NodeVisitor):
         called on that function's output for constants.
         """
         pass
+
     _finalize: t.Optional[_FinalizeInfo] = None
 
     def _make_finalize(self) -> _FinalizeInfo:
@@ -353,7 +399,9 @@ class CodeGenerator(NodeVisitor):
         """
         pass
 
-    def _output_child_to_const(self, node: nodes.Expr, frame: Frame, finalize: _FinalizeInfo) -> str:
+    def _output_child_to_const(
+        self, node: nodes.Expr, frame: Frame, finalize: _FinalizeInfo
+    ) -> str:
         """Try to optimize a child of an ``Output`` node by trying to
         convert it to constant, finalized data at compile time.
 
@@ -363,26 +411,31 @@ class CodeGenerator(NodeVisitor):
         """
         pass
 
-    def _output_child_pre(self, node: nodes.Expr, frame: Frame, finalize: _FinalizeInfo) -> None:
+    def _output_child_pre(
+        self, node: nodes.Expr, frame: Frame, finalize: _FinalizeInfo
+    ) -> None:
         """Output extra source code before visiting a child of an
         ``Output`` node.
         """
         pass
 
-    def _output_child_post(self, node: nodes.Expr, frame: Frame, finalize: _FinalizeInfo) -> None:
+    def _output_child_post(
+        self, node: nodes.Expr, frame: Frame, finalize: _FinalizeInfo
+    ) -> None:
         """Output extra source code after visiting a child of an
         ``Output`` node.
         """
         pass
-    visit_Add = _make_binop('+')
-    visit_Sub = _make_binop('-')
-    visit_Mul = _make_binop('*')
-    visit_Div = _make_binop('/')
-    visit_FloorDiv = _make_binop('//')
-    visit_Pow = _make_binop('**')
-    visit_Mod = _make_binop('%')
-    visit_And = _make_binop('and')
-    visit_Or = _make_binop('or')
-    visit_Pos = _make_unop('+')
-    visit_Neg = _make_unop('-')
-    visit_Not = _make_unop('not ')
+
+    visit_Add = _make_binop("+")
+    visit_Sub = _make_binop("-")
+    visit_Mul = _make_binop("*")
+    visit_Div = _make_binop("/")
+    visit_FloorDiv = _make_binop("//")
+    visit_Pow = _make_binop("**")
+    visit_Mod = _make_binop("%")
+    visit_And = _make_binop("and")
+    visit_Or = _make_binop("or")
+    visit_Pos = _make_unop("+")
+    visit_Neg = _make_unop("-")
+    visit_Not = _make_unop("not ")
