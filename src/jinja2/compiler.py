@@ -5,11 +5,11 @@ from io import StringIO
 from typing import cast
 
 from . import nodes
+from .exceptions import TemplateAssertionError
 from .idtracking import Symbols
 from .nodes import EvalContext
 from .optimizer import Optimizer
 from .visitor import NodeVisitor
-from .exceptions import TemplateAssertionError
 
 if t.TYPE_CHECKING:
     from typing import NoReturn
