@@ -14,10 +14,11 @@ from .exceptions import TemplateSyntaxError
 from .utils import LRUCache
 
 if t.TYPE_CHECKING:
-    import typing_extensions as te
+    from typing_extensions import Deque, NoReturn
 
     from .environment import Environment
-_lexer_cache: t.MutableMapping[t.Tuple, "Lexer"] = LRUCache(50)
+
+_lexer_cache: t.MutableMapping[t.Tuple[str, ...], "Lexer"] = LRUCache(50)
 whitespace_re = re.compile("\\s+")
 newline_re = re.compile("(\\r\\n|\\r|\\n)")
 string_re = re.compile(
@@ -242,10 +243,10 @@ class TokenStream:
         self,
         generator: t.Iterable[Token],
         name: t.Optional[str],
-        filename: t.Optional[str],
+        filename: t.Optional[str]
     ):
         self._iter = iter(generator)
-        self._pushed: te.Deque[Token] = deque()
+        self._pushed: Deque[Token] = deque()
         self.name = name
         self.filename = filename
         self.closed = False
@@ -324,13 +325,13 @@ class TokenStream:
             )
         try:
             return next(self)
-        except StopIteration:
+        except StopIteration as e:
             raise TemplateSyntaxError(
                 "unexpected end of template",
                 self.current.lineno,
                 self.name,
-                self.filename,
-            )
+                self.filename
+            ) from e
 
 
 def get_lexer(environment: "Environment") -> "Lexer":
@@ -480,7 +481,7 @@ class Lexer:
         source: str,
         name: t.Optional[str] = None,
         filename: t.Optional[str] = None,
-        state: t.Optional[str] = None,
+        state: t.Optional[str] = None
     ) -> TokenStream:
         """Calls tokeniter + tokenize and wraps it in a token stream."""
         stream = self.tokeniter(source, name, filename, state)
@@ -490,7 +491,7 @@ class Lexer:
         self,
         stream: t.Iterable[t.Tuple[int, str, str]],
         name: t.Optional[str] = None,
-        filename: t.Optional[str] = None,
+        filename: t.Optional[str] = None
     ) -> t.Iterator[Token]:
         """This is called with the stream as returned by `tokenize` and wraps
         every token in a :class:`Token` and converts the value.
@@ -509,8 +510,8 @@ class Lexer:
         source: str,
         name: t.Optional[str],
         filename: t.Optional[str] = None,
-        state: t.Optional[str] = None,
-    ) -> t.Iterator[t.Tuple[int, str, str]]:
+        state: t.Optional[str] = None
+    ) -> t.Iterator[t.Tuple[int, str | Failure, str]]:
         """This method tokenizes the text and returns the tokens in a
         generator. Use this method if you just want to tokenize a template.
 
