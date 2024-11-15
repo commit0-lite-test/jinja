@@ -250,14 +250,18 @@ class Environment:
 
         .. versionadded:: 2.5
         """
-        pass
+        if isinstance(extension, str):
+            extension = import_string(extension)
+        self.extensions[extension.identifier] = extension(self)
 
     def extend(self, **attributes: t.Any) -> None:
         """Add the items to the instance of the environment if they do not exist
         yet.  This is used by :ref:`extensions <writing-extensions>` to register
         callbacks and configuration values without breaking inheritance.
         """
-        pass
+        for key, value in attributes.items():
+            if not hasattr(self, key):
+                setattr(self, key, value)
 
     def overlay(self, block_start_string: str=missing, block_end_string: str=missing, variable_start_string: str=missing, variable_end_string: str=missing, comment_start_string: str=missing, comment_end_string: str=missing, line_statement_prefix: t.Optional[str]=missing, line_comment_prefix: t.Optional[str]=missing, trim_blocks: bool=missing, lstrip_blocks: bool=missing, newline_sequence: "te.Literal['\\n', '\\r\\n', '\\r']"=missing, keep_trailing_newline: bool=missing, extensions: t.Sequence[t.Union[str, t.Type['Extension']]]=missing, optimized: bool=missing, undefined: t.Type[Undefined]=missing, finalize: t.Optional[t.Callable[..., t.Any]]=missing, autoescape: t.Union[bool, t.Callable[[t.Optional[str]], bool]]=missing, loader: t.Optional['BaseLoader']=missing, cache_size: int=missing, auto_reload: bool=missing, bytecode_cache: t.Optional['BytecodeCache']=missing, enable_async: bool=False) -> 'Environment':
         """Create a new overlay environment that shares all the data with the
@@ -280,21 +284,35 @@ class Environment:
     @property
     def lexer(self) -> Lexer:
         """The lexer for this environment."""
-        pass
+        return get_lexer(self)
 
     def iter_extensions(self) -> t.Iterator['Extension']:
         """Iterates over the extensions by priority."""
-        pass
+        return iter(sorted(self.extensions.values(), key=lambda x: x.priority))
 
     def getitem(self, obj: t.Any, argument: t.Union[str, t.Any]) -> t.Union[t.Any, Undefined]:
         """Get an item or attribute of an object but prefer the item."""
-        pass
+        try:
+            return obj[argument]
+        except (AttributeError, TypeError, LookupError):
+            if isinstance(argument, str):
+                try:
+                    return getattr(obj, argument)
+                except AttributeError:
+                    pass
+        return self.undefined(obj=obj, name=argument)
 
     def getattr(self, obj: t.Any, attribute: str) -> t.Any:
         """Get an item or attribute of an object but prefer the attribute.
         Unlike :meth:`getitem` the attribute *must* be a string.
         """
-        pass
+        try:
+            return getattr(obj, attribute)
+        except AttributeError:
+            try:
+                return obj[attribute]
+            except (TypeError, LookupError):
+                return self.undefined(obj=obj, name=attribute)
 
     def call_filter(self, name: str, value: t.Any, args: t.Optional[t.Sequence[t.Any]]=None, kwargs: t.Optional[t.Mapping[str, t.Any]]=None, context: t.Optional[Context]=None, eval_ctx: t.Optional[EvalContext]=None) -> t.Any:
         """Invoke a filter on a value the same way the compiler does.
