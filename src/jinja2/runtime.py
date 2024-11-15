@@ -103,7 +103,7 @@ class TemplateReference:
     def __init__(self, context: "Context") -> None:
         self.__context = context
 
-    def __getitem__(self, name: str) -> t.Any:
+    def __getitem__(self, name: str) -> "BlockReference":
         blocks = self.__context.blocks[name]
         return BlockReference(name, self.__context, blocks, 0)
 
@@ -561,16 +561,21 @@ class Macro:
         elif kwargs:
             if "caller" in kwargs:
                 raise TypeError(
-                    f"macro {self.name!r} was invoked with two values for the special caller argument. This is most likely a bug."
+                    "macro {!r} was invoked with two values for the special caller "
+                    "argument. This is most likely a bug.".format(self.name)
                 )
             raise TypeError(
-                f"macro {self.name!r} takes no keyword argument {next(iter(kwargs))!r}"
+                "macro {!r} takes no keyword argument {!r}".format(
+                    self.name, next(iter(kwargs))
+                )
             )
         if self.catch_varargs:
             arguments.append(args[self._argument_count :])
         elif len(args) > self._argument_count:
             raise TypeError(
-                f"macro {self.name!r} takes not more than {len(self.arguments)} argument(s)"
+                "macro {!r} takes not more than {} argument(s)".format(
+                    self.name, len(self.arguments)
+                )
             )
         return self._invoke(arguments, autoescape)
 
@@ -624,12 +629,14 @@ class Undefined:
         if self._undefined_obj is missing:
             return f"{self._undefined_name} is undefined"
 
-        return f"{object_type_repr(self._undefined_obj)} has no attribute {self._undefined_name!r}"
+        return "{} has no attribute {!r}".format(
+            object_type_repr(self._undefined_obj), self._undefined_name
+        )
 
     @internalcode
     def _fail_with_undefined_error(
         self, *args: t.Any, **kwargs: t.Any
-    ) -> "te.NoReturn":
+    ) -> t.NoReturn:
         """Raise an :exc:`UndefinedError` when operations are performed
         on the undefined value.
         """
@@ -714,9 +721,11 @@ def make_logging_undefined(
                 return f"undefined value: {self._undefined_hint}"
             elif self._undefined_obj is missing:
                 return f"{self._undefined_name} is undefined"
-            return f"{object_type_repr(self._undefined_obj)} has no attribute {self._undefined_name!r}"
+            return "{} has no attribute {!r}".format(
+                object_type_repr(self._undefined_obj), self._undefined_name
+            )
 
-        def __str__(self):
+        def __str__(self) -> str:
             logger.warning("Undefined: %s", self._log_message())
             return base.__str__(self)
 
@@ -780,8 +789,10 @@ class DebugUndefined(Undefined):
         elif self._undefined_obj is missing:
             message = self._undefined_name
         else:
-            message = f"no such element: {object_type_repr(self._undefined_obj)}[{self._undefined_name!r}]"
-        return f"{{{{ {message} }}}}"
+            message = "no such element: {}[{!r}]".format(
+                object_type_repr(self._undefined_obj), self._undefined_name
+            )
+        return "{{ " + message + " }}"
 
 
 class StrictUndefined(Undefined):
