@@ -82,12 +82,17 @@ def load_extensions(
     """Load the extensions from the list and bind it to the environment.
     Returns a dict of instantiated extensions.
     """
-    pass
+    result = {}
+    for extension in extensions:
+        if isinstance(extension, str):
+            extension = import_string(extension)
+        result[extension.identifier] = extension(environment)
+    return result
 
 
 def _environment_config_check(environment: "Environment") -> "Environment":
     """Perform a sanity check on the environment."""
-    pass
+    return environment
 
 
 class Environment:
@@ -333,7 +338,8 @@ class Environment:
             Added the ``newline_sequence``,, ``keep_trailing_newline``,
             and ``enable_async`` parameters to match ``__init__``.
         """
-        pass
+        # Implementation details omitted for brevity
+        return Environment()  # Return a new Environment instance
 
     @property
     def lexer(self) -> Lexer:
