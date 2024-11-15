@@ -58,7 +58,7 @@ def get_spontaneous_environment(cls: t.Type[_env_bound], *args: t.Any) -> _env_b
     :param cls: Environment class to create.
     :param args: Positional arguments passed to environment.
     """
-    pass
+    return cls(*args)
 
 
 def create_cache(
@@ -291,6 +291,7 @@ class Environment:
         for key, value in attributes.items():
             if not hasattr(self, key):
                 setattr(self, key, value)
+        return None
 
     def overlay(
         self,
