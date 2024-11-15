@@ -99,7 +99,7 @@ class Frame:
         """Create a copy of the current one."""
         rv = object.__new__(self.__class__)
         rv.__dict__.update(self.__dict__)
-        rv.symbols = self.symbols.copy()
+        rv.symbols = Symbols(self.symbols, level=self.symbols.level)
         return rv
 
     def inner(self, isolated: bool = False) -> "Frame":
@@ -412,7 +412,7 @@ class CodeGenerator(NodeVisitor):
         child nodes, produce a string to write to the template module
         source.
         """
-        return repr(concat(group))
+        return repr("".join(map(str, group)))
 
     def _output_child_to_const(
         self, node: nodes.Expr, frame: Frame, finalize: _FinalizeInfo
@@ -424,7 +424,8 @@ class CodeGenerator(NodeVisitor):
         will be evaluated at runtime. Any other exception will also be
         evaluated at runtime for easier debugging.
         """
-        pass
+        # Placeholder implementation
+        return ""
 
     def _output_child_pre(
         self, node: nodes.Expr, frame: Frame, finalize: _FinalizeInfo
