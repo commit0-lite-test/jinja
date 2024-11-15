@@ -3,18 +3,17 @@
 import typing as t
 from collections import abc
 
-from markupsafe import escape
-from markupsafe import Markup
-from markupsafe import soft_str
+from markupsafe import Markup, escape, soft_str
 
-from .exceptions import TemplateRuntimeError
-from .exceptions import UndefinedError
+from .exceptions import TemplateRuntimeError, UndefinedError
 from .nodes import EvalContext
-from .utils import concat
-from .utils import internalcode
-from .utils import missing
-from .utils import object_type_repr
-from .utils import pass_eval_context
+from .utils import (
+    concat,
+    internalcode,
+    missing,
+    object_type_repr,
+    pass_eval_context,
+)
 
 V = t.TypeVar("V")
 F = t.TypeVar("F", bound=t.Callable[..., t.Any])
@@ -142,12 +141,14 @@ class Context:
     ):
         self.parent = parent
         self.vars: t.Dict[str, t.Any] = {}
-        self.environment: Environment = environment
+        self.environment: "Environment" = environment
         self.eval_ctx = EvalContext(self.environment, name)
         self.exported_vars: t.Set[str] = set()
         self.name = name
         self.globals_keys = set() if globals is None else set(globals)
-        self.blocks = {k: [v] for k, v in blocks.items()}
+        self.blocks: t.Dict[str, t.List[t.Callable[["Context"], t.Iterator[str]]]] = {
+            k: [v] for k, v in blocks.items()
+        }
 
     def super(
         self, name: str, current: t.Callable[["Context"], t.Iterator[str]]
