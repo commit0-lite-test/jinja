@@ -10,24 +10,30 @@ from .optimizer import Optimizer
 from .visitor import NodeVisitor
 
 if t.TYPE_CHECKING:
-    from typing_extensions import NoReturn
+    from typing import NoReturn
 
     from .environment import Environment
 F = t.TypeVar("F", bound=t.Callable[..., t.Any])
 operators = {
-    'eq': '==', 'ne': '!=', 'gt': '>', 'gteq': '>=',
-    'lt': '<', 'lteq': '<=', 'in': 'in', 'notin': 'not in'
+    "eq": "==",
+    "ne": "!=",
+    "gt": ">",
+    "gteq": ">=",
+    "lt": "<",
+    "lteq": "<=",
+    "in": "in",
+    "notin": "not in",
 }
 
 
 def generate(
     node: nodes.Template,
-    environment: 'Environment',
+    environment: "Environment",
     name: t.Optional[str],
     filename: t.Optional[str],
     stream: t.Optional[t.TextIO] = None,
     defer_init: bool = False,
-    optimized: bool = True
+    optimized: bool = True,
 ) -> t.Optional[str]:
     """Generate the python source for a node tree."""
     codegen = CodeGenerator(environment, name, filename, stream, defer_init, optimized)
@@ -68,8 +74,8 @@ class Frame:
     def __init__(
         self,
         eval_ctx: EvalContext,
-        parent: t.Optional['Frame'] = None,
-        level: t.Optional[int] = None
+        parent: t.Optional["Frame"] = None,
+        level: t.Optional[int] = None,
     ) -> None:
         self.eval_ctx = eval_ctx
         self.parent = parent
@@ -160,12 +166,12 @@ class CompilerExit(Exception):
 class CodeGenerator(NodeVisitor):
     def __init__(
         self,
-        environment: 'Environment',
+        environment: "Environment",
         name: t.Optional[str],
         filename: t.Optional[str],
         stream: t.Optional[t.TextIO] = None,
         defer_init: bool = False,
-        optimized: bool = True
+        optimized: bool = True,
     ) -> None:
         if stream is None:
             stream = StringIO()
@@ -203,7 +209,7 @@ class CodeGenerator(NodeVisitor):
     def temporary_identifier(self) -> str:
         """Get a new unique identifier."""
         self._last_identifier += 1
-        return f'_tmp_{self._last_identifier}'
+        return f"_tmp_{self._last_identifier}"
 
     def buffer(self, frame: Frame) -> None:
         """Enable buffering for the frame from that point onwards."""
@@ -284,7 +290,9 @@ class CodeGenerator(NodeVisitor):
         """
         pass
 
-    def macro_body(self, node: t.Union[nodes.Macro, nodes.CallBlock], frame: Frame) -> t.Tuple[Frame, MacroRef]:
+    def macro_body(
+        self, node: t.Union[nodes.Macro, nodes.CallBlock], frame: Frame
+    ) -> t.Tuple[Frame, MacroRef]:
         """Dump the function def of a macro or call block."""
         macro_frame = frame.inner()
         macro_ref = MacroRef(node)
@@ -298,8 +306,8 @@ class CodeGenerator(NodeVisitor):
     def position(self, node: nodes.Node) -> str:
         """Return a human readable position for the node."""
         if node.lineno is not None:
-            return f'line {node.lineno}'
-        return 'unknown position'
+            return f"line {node.lineno}"
+        return "unknown position"
 
     def write_commons(self) -> None:
         """Writes a common preamble that is used by root and block functions.
@@ -391,12 +399,12 @@ class CodeGenerator(NodeVisitor):
             runtime.
         """
         finalize = self.environment.finalize
-        const = getattr(finalize, 'const', None) or self._default_finalize
-        src = getattr(finalize, 'src', None)
+        const = getattr(finalize, "const", None) or self._default_finalize
+        src = getattr(finalize, "src", None)
         if src:
-            src = f'environment.finalize({src})'
+            src = f"environment.finalize({src})"
         else:
-            src = 'environment.finalize'
+            src = "environment.finalize"
         return self._FinalizeInfo(const=const, src=src)
 
     def _output_const_repr(self, group: t.Iterable[t.Any]) -> str:
@@ -434,25 +442,30 @@ class CodeGenerator(NodeVisitor):
         """
         pass
 
+
 def _make_binop(op):
     def visitor(self, node, frame):
         return self.binop(node.left, node.right, op, frame)
+
     return visitor
+
 
 def _make_unop(op):
     def visitor(self, node, frame):
         return self.unop(node.node, op, frame)
+
     return visitor
 
-visit_Add = _make_binop('+')
-visit_Sub = _make_binop('-')
-visit_Mul = _make_binop('*')
-visit_Div = _make_binop('/')
-visit_FloorDiv = _make_binop('//')
-visit_Pow = _make_binop('**')
-visit_Mod = _make_binop('%')
-visit_And = _make_binop('and')
-visit_Or = _make_binop('or')
-visit_Pos = _make_unop('+')
-visit_Neg = _make_unop('-')
-visit_Not = _make_unop('not ')
+
+visit_Add = _make_binop("+")
+visit_Sub = _make_binop("-")
+visit_Mul = _make_binop("*")
+visit_Div = _make_binop("/")
+visit_FloorDiv = _make_binop("//")
+visit_Pow = _make_binop("**")
+visit_Mod = _make_binop("%")
+visit_And = _make_binop("and")
+visit_Or = _make_binop("or")
+visit_Pos = _make_unop("+")
+visit_Neg = _make_unop("-")
+visit_Not = _make_unop("not ")
