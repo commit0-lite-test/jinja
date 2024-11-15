@@ -189,7 +189,10 @@ class Context:
         used in situations where the system needs a new context in the same
         template that is independent.
         """
-        pass
+        context = Context(self.environment, self.parent, self.name, self.blocks)
+        if locals:
+            context.vars.update(locals)
+        return context
     keys = _dict_method_all(dict.keys)
     values = _dict_method_all(dict.values)
     items = _dict_method_all(dict.items)
@@ -221,7 +224,9 @@ class BlockReference:
     @property
     def super(self) -> t.Union['BlockReference', 'Undefined']:
         """Super the block."""
-        pass
+        if self._depth + 1 < len(self._stack):
+            return BlockReference(self.name, self._context, self._stack, self._depth + 1)
+        return self._context.environment.undefined('there is no parent block', self.name)
 
     @internalcode
     def __call__(self) -> str:
@@ -265,7 +270,12 @@ class LoopContext:
         If the iterable is a generator or otherwise does not have a
         size, it is eagerly evaluated to get a size.
         """
-        pass
+        if self._length is None:
+            try:
+                self._length = len(self._iterable)
+            except TypeError:
+                self._length = sum(1 for _ in self._iterable)
+        return self._length
 
     def __len__(self) -> int:
         return self.length
@@ -273,12 +283,12 @@ class LoopContext:
     @property
     def depth(self) -> int:
         """How many levels deep a recursive loop currently is, starting at 1."""
-        pass
+        return self.depth0 + 1
 
     @property
     def index(self) -> int:
         """Current iteration of the loop, starting at 1."""
-        pass
+        return self.index0 + 1
 
     @property
     def revindex0(self) -> int:
@@ -286,7 +296,7 @@ class LoopContext:
 
         Requires calculating :attr:`length`.
         """
-        pass
+        return self.length - self.index0 - 1
 
     @property
     def revindex(self) -> int:
@@ -294,12 +304,12 @@ class LoopContext:
 
         Requires calculating :attr:`length`.
         """
-        pass
+        return self.length - self.index0
 
     @property
     def first(self) -> bool:
         """Whether this is the first iteration of the loop."""
-        pass
+        return self.index0 == 0
 
     def _peek_next(self) -> t.Any:
         """Return the next element in the iterable, or :data:`missing`
@@ -307,7 +317,12 @@ class LoopContext:
         the result in :attr:`_last` for use in subsequent checks. The
         cache is reset when :meth:`__next__` is called.
         """
-        pass
+        if self._after is missing:
+            try:
+                self._after = next(self._iterator)
+            except StopIteration:
+                self._after = missing
+        return self._after
 
     @property
     def last(self) -> bool:
@@ -317,14 +332,14 @@ class LoopContext:
         :func:`itertools.groupby` for issues this can cause.
         The :func:`groupby` filter avoids that issue.
         """
-        pass
+        return self._peek_next() is missing
 
     @property
     def previtem(self) -> t.Union[t.Any, 'Undefined']:
         """The item in the previous iteration. Undefined during the
         first iteration.
         """
-        pass
+        return self._before if self._before is not missing else self._undefined('There is no previous item')
 
     @property
     def nextitem(self) -> t.Union[t.Any, 'Undefined']:
@@ -335,7 +350,8 @@ class LoopContext:
         :func:`itertools.groupby` for issues this can cause.
         The :func:`jinja-filters.groupby` filter avoids that issue.
         """
-        pass
+        rv = self._peek_next()
+        return rv if rv is not missing else self._undefined('There is no next item')
 
     def cycle(self, *args: V) -> V:
         """Return a value from the given args, cycling through based on
@@ -343,7 +359,9 @@ class LoopContext:
 
         :param args: One or more values to cycle through.
         """
-        pass
+        if not args:
+            raise TypeError('no items for cycling given')
+        return args[self.index0 % len(args)]
 
     def changed(self, *value: t.Any) -> bool:
         """Return ``True`` if previously called with a different value
@@ -351,7 +369,10 @@ class LoopContext:
 
         :param value: One or more values to compare to the last call.
         """
-        pass
+        if self._last_changed_value != value:
+            self._last_changed_value = value
+            return True
+        return False
 
     def __iter__(self) -> 'LoopContext':
         return self
@@ -488,14 +509,20 @@ class Undefined:
         """Build a message about the undefined value based on how it was
         accessed.
         """
-        pass
+        if self._undefined_hint:
+            return self._undefined_hint
+
+        if self._undefined_obj is missing:
+            return f'{self._undefined_name} is undefined'
+
+        return f'{object_type_repr(self._undefined_obj)} has no attribute {self._undefined_name!r}'
 
     @internalcode
     def _fail_with_undefined_error(self, *args: t.Any, **kwargs: t.Any) -> 'te.NoReturn':
         """Raise an :exc:`UndefinedError` when operations are performed
         on the undefined value.
         """
-        pass
+        raise self._undefined_exception(self._undefined_message)
 
     @internalcode
     def __getattr__(self, name: str) -> t.Any:
@@ -561,7 +588,31 @@ def make_logging_undefined(logger: t.Optional['logging.Logger']=None, base: t.Ty
     :param base: the base class to add logging functionality to.  This
                  defaults to :class:`Undefined`.
     """
-    pass
+    if logger is None:
+        import logging
+        logger = logging.getLogger(__name__)
+
+    class LoggingUndefined(base):
+        def _log_message(self):
+            if self._undefined_hint:
+                return f'undefined value: {self._undefined_hint}'
+            elif self._undefined_obj is missing:
+                return f'{self._undefined_name} is undefined'
+            return f'{object_type_repr(self._undefined_obj)} has no attribute {self._undefined_name!r}'
+
+        def __str__(self):
+            logger.warning('Undefined: %s', self._log_message())
+            return base.__str__(self)
+
+        def __iter__(self):
+            logger.warning('Undefined: %s', self._log_message())
+            return base.__iter__(self)
+
+        def __bool__(self):
+            logger.warning('Undefined: %s', self._log_message())
+            return base.__bool__(self)
+
+    return LoggingUndefined
 
 class ChainableUndefined(Undefined):
     """An undefined that is chainable, where both ``__getattr__`` and
