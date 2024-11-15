@@ -14,7 +14,8 @@ from .exceptions import TemplateSyntaxError
 from .utils import LRUCache
 
 if t.TYPE_CHECKING:
-    from typing_extensions import Deque, NoReturn
+    from typing import Deque
+    from typing import NoReturn
 
     from .environment import Environment
 
@@ -181,9 +182,7 @@ class Failure:
     """
 
     def __init__(
-        self,
-        message: str,
-        cls: t.Type[TemplateSyntaxError] = TemplateSyntaxError
+        self, message: str, cls: t.Type[TemplateSyntaxError] = TemplateSyntaxError
     ) -> None:
         self.message = message
         self.error_class = cls
@@ -245,7 +244,7 @@ class TokenStream:
         self,
         generator: t.Iterable[Token],
         name: t.Optional[str],
-        filename: t.Optional[str]
+        filename: t.Optional[str],
     ):
         self._iter = iter(generator)
         self._pushed: Deque[Token] = deque()
@@ -332,7 +331,7 @@ class TokenStream:
                 "unexpected end of template",
                 self.current.lineno,
                 self.name,
-                self.filename
+                self.filename,
             ) from e
 
 
@@ -483,7 +482,7 @@ class Lexer:
         source: str,
         name: t.Optional[str] = None,
         filename: t.Optional[str] = None,
-        state: t.Optional[str] = None
+        state: t.Optional[str] = None,
     ) -> TokenStream:
         """Calls tokeniter + tokenize and wraps it in a token stream."""
         stream = self.tokeniter(source, name, filename, state)
@@ -493,7 +492,7 @@ class Lexer:
         self,
         stream: t.Iterable[t.Tuple[int, str, str]],
         name: t.Optional[str] = None,
-        filename: t.Optional[str] = None
+        filename: t.Optional[str] = None,
     ) -> t.Iterator[Token]:
         """This is called with the stream as returned by `tokenize` and wraps
         every token in a :class:`Token` and converts the value.
@@ -512,7 +511,7 @@ class Lexer:
         source: str,
         name: t.Optional[str],
         filename: t.Optional[str] = None,
-        state: t.Optional[str] = None
+        state: t.Optional[str] = None,
     ) -> t.Iterator[t.Tuple[int, str | Failure, str]]:
         """This method tokenizes the text and returns the tokens in a
         generator. Use this method if you just want to tokenize a template.
