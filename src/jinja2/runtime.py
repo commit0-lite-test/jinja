@@ -3,17 +3,18 @@
 import typing as t
 from collections import abc
 
-from markupsafe import Markup, escape, soft_str
+from markupsafe import escape
+from markupsafe import Markup
+from markupsafe import soft_str
 
-from .exceptions import TemplateRuntimeError, UndefinedError
+from .exceptions import TemplateRuntimeError
+from .exceptions import UndefinedError
 from .nodes import EvalContext
-from .utils import (
-    concat,
-    internalcode,
-    missing,
-    object_type_repr,
-    pass_eval_context,
-)
+from .utils import concat
+from .utils import internalcode
+from .utils import missing
+from .utils import object_type_repr
+from .utils import pass_eval_context
 
 V = t.TypeVar("V")
 F = t.TypeVar("F", bound=t.Callable[..., t.Any])
@@ -141,12 +142,12 @@ class Context:
     ):
         self.parent = parent
         self.vars: t.Dict[str, t.Any] = {}
-        self.environment: "Environment" = environment
+        self.environment: Environment = environment
         self.eval_ctx = EvalContext(self.environment, name)
         self.exported_vars: t.Set[str] = set()
         self.name = name
         self.globals_keys = set() if globals is None else set(globals)
-        self.blocks: t.Dict[str, t.List[t.Callable[["Context"], t.Iterator[str]]]] = {
+        self.blocks: t.Dict[str, t.List[t.Callable[[Context], t.Iterator[str]]]] = {
             k: [v] for k, v in blocks.items()
         }
 
@@ -562,21 +563,17 @@ class Macro:
         elif kwargs:
             if "caller" in kwargs:
                 raise TypeError(
-                    "macro {!r} was invoked with two values for the special caller "
-                    "argument. This is most likely a bug.".format(self.name)
+                    f"macro {self.name!r} was invoked with two values for the special caller "
+                    "argument. This is most likely a bug."
                 )
             raise TypeError(
-                "macro {!r} takes no keyword argument {!r}".format(
-                    self.name, next(iter(kwargs))
-                )
+                f"macro {self.name!r} takes no keyword argument {next(iter(kwargs))!r}"
             )
         if self.catch_varargs:
             arguments.append(args[self._argument_count :])
         elif len(args) > self._argument_count:
             raise TypeError(
-                "macro {!r} takes not more than {} argument(s)".format(
-                    self.name, len(self.arguments)
-                )
+                f"macro {self.name!r} takes not more than {len(self.arguments)} argument(s)"
             )
         return self._invoke(arguments, autoescape)
 
@@ -630,14 +627,10 @@ class Undefined:
         if self._undefined_obj is missing:
             return f"{self._undefined_name} is undefined"
 
-        return "{} has no attribute {!r}".format(
-            object_type_repr(self._undefined_obj), self._undefined_name
-        )
+        return f"{object_type_repr(self._undefined_obj)} has no attribute {self._undefined_name!r}"
 
     @internalcode
-    def _fail_with_undefined_error(
-        self, *args: t.Any, **kwargs: t.Any
-    ) -> t.NoReturn:
+    def _fail_with_undefined_error(self, *args: t.Any, **kwargs: t.Any) -> t.NoReturn:
         """Raise an :exc:`UndefinedError` when operations are performed
         on the undefined value.
         """
@@ -722,9 +715,7 @@ def make_logging_undefined(
                 return f"undefined value: {self._undefined_hint}"
             elif self._undefined_obj is missing:
                 return f"{self._undefined_name} is undefined"
-            return "{} has no attribute {!r}".format(
-                object_type_repr(self._undefined_obj), self._undefined_name
-            )
+            return f"{object_type_repr(self._undefined_obj)} has no attribute {self._undefined_name!r}"
 
         def __str__(self) -> str:
             logger.warning("Undefined: %s", self._log_message())
@@ -790,9 +781,7 @@ class DebugUndefined(Undefined):
         elif self._undefined_obj is missing:
             message = self._undefined_name
         else:
-            message = "no such element: {}[{!r}]".format(
-                object_type_repr(self._undefined_obj), self._undefined_name
-            )
+            message = f"no such element: {object_type_repr(self._undefined_obj)}[{self._undefined_name!r}]"
         return "{{ " + message + " }}"
 
 
