@@ -665,8 +665,11 @@ class Environment:
         pass
 
     def list_templates(self) -> t.List[str]:
-        """Returns a list of templates for this environment.  This requires
-        that the loader supports the loader's list_templates() method."""
+        """Returns a list of templates for this environment.
+        
+        This requires that the loader supports the loader's
+        list_templates() method.
+        """
 
         If the loader does not support that, a :exc:`TypeError` is raised."""
         if self.loader is None:
