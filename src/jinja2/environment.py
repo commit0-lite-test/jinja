@@ -673,6 +673,8 @@ class Environment:
 
         .. versionadded:: 2.4
         """
+        if self.loader is None:
+            raise TypeError("no loader for this environment specified")
         return self.loader.list_templates()
         :meth:`~BaseLoader.list_templates` method.
 
