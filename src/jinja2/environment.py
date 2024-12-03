@@ -760,9 +760,6 @@ class Environment:
         .. versionchanged:: 3.0
             If a template is loaded from cache, ``globals`` will update
             the template's globals instead of ignoring the new values.
-            """
-        """
-        """
         """
         """
 
