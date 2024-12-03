@@ -669,9 +669,11 @@ class Environment:
         that the loader supports the loader's
         :meth:`~BaseLoader.list_templates` method.
 
-        If there are other files in the template folder besides the
-        actual templates, the returned list can be filtered.  There are two
-        ways: either `extensions` is set to a list of file extensions for
+        If the loader does not support that, a :exc:`TypeError` is raised.
+
+        .. versionadded:: 2.4
+        """
+        return self.loader.list_templates()
         templates, or a `filter_func` can be provided which is a callable that
         is passed a template name and should return `True` if it should end up
         in the result list.
