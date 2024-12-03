@@ -664,11 +664,7 @@ class Environment:
         """
         pass
 
-    def list_templates(
-        self,
-        extensions: t.Optional[t.Collection[str]] = None,
-        filter_func: t.Optional[t.Callable[[str], bool]] = None,
-    ) -> t.List[str]:
+    def list_templates(self) -> t.List[str]:
         """Returns a list of templates for this environment.  This requires
         that the loader supports the loader's
         :meth:`~BaseLoader.list_templates` method.
@@ -686,7 +682,7 @@ class Environment:
         """
         if self.loader is None:
             raise TypeError('no loader for this environment specified')
-        return self.loader.list_templates(extensions, filter_func)
+        return self.loader.list_templates()
 
         If there are other files in the template folder besides the
         actual templates, the returned list can be filtered.  There are two
