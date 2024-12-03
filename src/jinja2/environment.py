@@ -764,6 +764,7 @@ class Environment:
         """
         """
         """
+        """
 
         .. versionchanged:: 2.4
             If ``name`` is a :class:`Template` object it is returned
