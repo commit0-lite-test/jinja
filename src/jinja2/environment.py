@@ -742,22 +742,7 @@ class Environment:
         parent: t.Optional[str] = None,
         globals: t.Optional[t.MutableMapping[str, t.Any]] = None,
     ) -> "Template":
-        """Load a template by name."""
-        """
-        """
-        """
-        """
-        """
-
-        .. versionchanged:: 2.4
-            If ``name`` is a :class:`Template` object it is returned
-            unchanged.
-        """
-        if isinstance(name, Template):
-            return name
-        if parent is not None:
-            name = self.join_path(name, parent)
-        return self.loader.load(self, name, globals)
+        """Load a template by name.
 
         :param name: Name of the template to load. When loading
             templates from the filesystem, "/" is used as the path
@@ -772,14 +757,17 @@ class Environment:
 
         .. versionchanged:: 3.0
             If a template is loaded from cache, ``globals`` will update
-            the template's globals instead of ignoring the new values."""
-        """
-        """
+            the template's globals instead of ignoring the new values.
 
         .. versionchanged:: 2.4
             If ``name`` is a :class:`Template` object it is returned
             unchanged.
         """
+        if isinstance(name, Template):
+            return name
+        if parent is not None:
+            name = self.join_path(name, parent)
+        return self.loader.load(self, name, globals)
         pass
 
     @internalcode
