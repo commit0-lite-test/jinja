@@ -774,9 +774,6 @@ class Environment:
             If a template is loaded from cache, ``globals`` will update
             the template's globals instead of ignoring the new values.
         """
-        """
-        """
-        """
 
         .. versionchanged:: 2.4
             If ``name`` is a :class:`Template` object it is returned
