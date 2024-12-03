@@ -668,10 +668,7 @@ class Environment:
         """Returns a list of templates for this environment.  This requires
         that the loader supports the loader's list_templates() method.
 
-        If the loader does not support that, a :exc:`TypeError` is raised.
-
-        .. versionadded:: 2.4
-        """
+        If the loader does not support that, a :exc:`TypeError` is raised."""
         if self.loader is None:
             raise TypeError("no loader for this environment specified")
         return self.loader.list_templates()
