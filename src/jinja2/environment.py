@@ -437,7 +437,7 @@ class Environment:
         """Parse the sourcecode and return the abstract syntax tree.  This
         tree of nodes is used by the compiler to convert the template into
         executable source- or bytecode.  This is useful for debugging or to
-        extract information from templates.
+        extract information from templates."""
         """
         return self._parse(source, name, filename)
         extract information from templates.
