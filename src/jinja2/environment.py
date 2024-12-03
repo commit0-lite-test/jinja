@@ -742,24 +742,7 @@ class Environment:
         parent: t.Optional[str] = None,
         globals: t.Optional[t.MutableMapping[str, t.Any]] = None,
     ) -> "Template":
-        """Load a template by name with :attr:`loader` and return a
-        :class:`Template`. If the template does not exist a
-        :exc:`TemplateNotFound` exception is raised.
-
-        :param name: Name of the template to load. When loading
-            templates from the filesystem, "/" is used as the path
-            separator, even on Windows.
-        :param parent: The name of the parent template importing this
-            template. :meth:`join_path` can be used to implement name
-            transformations with this.
-        :param globals: Extend the environment :attr:`globals` with
-            these extra variables available for all renders of this
-            template. If the template has already been loaded and
-            cached, its globals are updated with any new items.
-
-        .. versionchanged:: 3.0
-            If a template is loaded from cache, ``globals`` will update
-            the template's globals instead of ignoring the new values.
+        """Load a template by name."""
         """
         """
         """
